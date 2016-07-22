@@ -1,6 +1,8 @@
+#include <chrono>
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <thread>
 #include <vector>
 
 #include <curlpp/cURLpp.hpp>
@@ -34,40 +36,61 @@ int main(int, char **)
         curlpp::Cleanup myCleanup;
 
         {
-            std::string base = "https://bing.campuscardcenter.com/ch/login.html";
-            //base = "http://jackfischer.me/test.php";
+            std::string login = "https://bing.campuscardcenter.com/ch/login.html";
+            //login = "http://jackfischer.me/test.php";
 
+            /* GET LOGIN PAGE FOR DVH COOKIE */
             std::list<std::string> headers;
-            //headers.push_back("Host: bing.campuscardcenter.com");
             headers.push_back("Origin: https://bing.campuscardcenter.com");
             headers.push_back("User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36");
             headers.push_back("Referer: https://bing.campuscardcenter.com/ch/login.html");
             headers.push_back("Upgrade-Insecure-Requests: 1");
-            headers.push_back("Content-Type: application/x-www-form-urlencoded");
             headers.push_back("Connection: keep-alive");
-            //headers.push_back("Accept-Encoding: gzip, deflate, br");
 
-            curlpp::Easy myRequest;
-            myRequest.setOpt(new curlpp::options::Url(base));
-            myRequest.setOpt(new curlpp::options::PostFields("username=jfische8&password=hackbu&action=Login"));
-            myRequest.setOpt(new curlpp::options::HttpHeader(headers));
-            myRequest.setOpt(new curlpp::options::Cookie("DVH=89165847-a434-4e57-95f4-435ba89ada75"));
-
-            //myRequest.setOpt(new curlpp::options::NoBody(true)); 
-            myRequest.setOpt(new curlpp::options::Header(true)); 
-
+            curlpp::Easy getLogin;
+            getLogin.setOpt(new curlpp::options::Url(login));
+            getLogin.setOpt(new curlpp::options::HttpHeader(headers));
+            getLogin.setOpt(new curlpp::options::Header(true)); 
 
             std::stringstream os;
             curlpp::options::WriteStream ws(&os);
-            myRequest.setOpt(ws);
+            getLogin.setOpt(ws);
+            getLogin.perform();
+            std::cout << "performed initial getLogin" <<std::endl;
 
-
-            myRequest.perform();
-            std::cout << "request performed." <<std::endl;
             std::vector<std::string> cookies = extractCookies(os.str());
             for (std::string s : cookies)
                 std::cout << s <<std::endl;
+            std::cout <<"ok, sleeping" <<std::endl <<std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            
+            
 
+            /* POST TO LOGIN PAGE WITH CREDENTIALS, GET JSESSIONID COOKIE*/
+            curlpp::Easy doLogin;
+            doLogin.setOpt(new curlpp::options::Url(login));
+            doLogin.setOpt(new curlpp::options::PostFields("username=jfische8&password=hackbu&action=Login"));
+            headers.push_back("Content-Type: application/x-www-form-urlencoded");
+            doLogin.setOpt(new curlpp::options::HttpHeader(headers));
+            for (std::string s : cookies)
+                doLogin.setOpt(new curlpp::options::Cookie(s));
+
+            //myRequest.setOpt(new curlpp::options::NoBody(true)); 
+            doLogin.setOpt(new curlpp::options::Header(true)); 
+
+
+            std::stringstream os2;
+            curlpp::options::WriteStream ws2(&os2);
+            doLogin.setOpt(ws2);
+            doLogin.perform();
+            std::cout << "performed doLogin post request" <<std::endl;
+            std::cout << os2.str() <<std::endl;
+            std::vector<std::string> cookies2 = extractCookies(os2.str());
+            for (std::string s : cookies2)
+                std::cout << s <<std::endl;
+            std::cout <<"ok, sleeping" <<std::endl <<std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+             
         }
 
     }
