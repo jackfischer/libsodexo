@@ -19,9 +19,41 @@ static void read_file(FILE* fp, char** output, int* length) {
   }
 }
 
+struct row {
+    int id;
+    char* date;
+    char* type;
+    char* description;
+    float ammount;
+};
+
+void parse_row(GumboNode* row) {
+    printf("HANDLING ROW\n\n");
+    for (unsigned int i = 0; i < row->v.element.children.length; i++) { //loop through cols
+        GumboNode* child = row->v.element.children.data[i];
+        if (child->type == GUMBO_NODE_ELEMENT) {
+            int len = child->v.element.end_pos.offset - child->v.element.start_pos.offset;
+            printf("%.*s\n", len, child->v.element.original_tag.data);
+            printf("field chilren: %d\n", child->v.element.children.length);
+            GumboNode* subc = child->v.element.children.data[0];
+            printf("subc type: %d\n\n", subc->type);
+
+            //printf("%s\n", child->v.element.attributes.data[0]);
+            /*
+            for (unsigned int j = 0; j < child->v.element.children.length; j++) {
+                GumboNode* subc = child->v.element.children.data[j];
+                int len = subc->v.element.end_pos.offset - subc->v.element.start_pos.offset;
+                printf("%.*s\n", len, subc->v.element.original_tag.data);
+            }*/
 
 
-static const char* find_title(const GumboNode* root) {
+        }
+    }
+}
+
+//TODO filter auths
+
+static const char* find_table(const GumboNode* root) {
   assert(root->type == GUMBO_NODE_ELEMENT);
   assert(root->v.element.children.length >= 2);
 
@@ -38,14 +70,13 @@ static const char* find_title(const GumboNode* root) {
   assert(body != NULL);
 
   /*
-  printf("node text %d\n", GUMBO_NODE_TEXT);
-  printf("node element %d\n", GUMBO_NODE_ELEMENT);
-  printf("node whitespace %d\n", GUMBO_NODE_WHITESPACE);
+  printf("node element %d\n", GUMBO_NODE_ELEMENT); //1
+  printf("node text %d\n", GUMBO_NODE_TEXT); //2
+  printf("node whitespace %d\n", GUMBO_NODE_WHITESPACE); //5
   printf("tag div %d\n", GUMBO_TAG_DIV); //38
-  printf("tag table %d\n", GUMBO_TAG_TABLE);
-  printf("tag p %d\n", GUMBO_TAG_P);
+  printf("tag table %d\n", GUMBO_TAG_TABLE);//95
+  printf("tag p %d\n", GUMBO_TAG_P);//25
   printf("tag h %d\n", GUMBO_TAG_H1);
-  printf("tag table %d\n", GUMBO_TAG_TABLE);
   printf("tag head %d\n", GUMBO_TAG_HEAD);
   printf("\n");
 
@@ -65,22 +96,31 @@ static const char* find_title(const GumboNode* root) {
 
   GumboNode* tablecontent = table->v.element.children.data[1];
 
-  GumboNode* row = tablecontent->v.element.children.data[6];
+  /*
+  GumboNode* row = tablecontent->v.element.children.data[26]; //should be 6-26
 
   printf("%s\n", row->v.element.original_tag.data);
   printf("\n");
+  */
 
-  for (unsigned int i = 0; i < row->v.element.children.length; i++) {
-      GumboNode* child = row->v.element.children.data[i];
-      //if (child->type == GUMBO_NODE_ELEMENT)
-          printf("body child %d   tag %d\n", i, child->v.element.tag);
+  //hardcoded 
+  //filters all our nodes just to record rootes
+  for (unsigned int i = 6; i < tablecontent->v.element.children.length - 5; i++) {
+      GumboNode* child = tablecontent->v.element.children.data[i];
+      if (child->type == GUMBO_NODE_ELEMENT) {
+          //printf("%.*s\n", 100, child->v.element.original_tag.data);
+          printf("\n\n\nchild %d   tag %d\n", i, child->v.element.tag);
+          parse_row(child);
+      }
   }
 
   exit(0);
+}
 
 
 
 
+/*
   GumboVector* head_children = &body->v.element.children;
   for (unsigned int i = 0; i < head_children->length; ++i) {
     GumboNode* child = head_children->data[i];
@@ -96,6 +136,7 @@ static const char* find_title(const GumboNode* root) {
   }
   return "<no title found>";
 }
+*/
 
 int main() {
     /*
@@ -117,8 +158,10 @@ int main() {
   read_file(fp, &input, &input_length);
   GumboOutput* output = gumbo_parse_with_options(
       &kGumboDefaultOptions, input, input_length);
-  const char* title = find_title(output->root);
+  const char* title = find_table(output->root);
   printf("%s\n", title);
   gumbo_destroy_output(&kGumboDefaultOptions, output);
   free(input);
 }
+
+
