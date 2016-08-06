@@ -3,189 +3,174 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <unistd.h>
 
-#include "gumbo.h"
+#include <gumbo.h>
 
 static void read_file(FILE* fp, char** output, int* length) {
-  struct stat filestats;
-  int fd = fileno(fp);
-  fstat(fd, &filestats);
-  *length = filestats.st_size;
-  *output = malloc(*length + 1);
-  int start = 0;
-  int bytes_read;
-  while ((bytes_read = fread(*output + start, 1, *length - start, fp))) {
-    start += bytes_read;
-  }
+    struct stat filestats;
+    int fd = fileno(fp);
+    fstat(fd, &filestats);
+    *length = filestats.st_size;
+    *output = malloc(*length + 1);
+    int start = 0;
+    int bytes_read;
+    while ((bytes_read = fread(*output + start, 1, *length - start, fp))) {
+        start += bytes_read;
+    }
 }
 
 struct row {
     int id;
-    char* date;
-    char* type;
-    char* description;
-    float ammount;
+    const char* date;
+    const char* type;
+    const char* description;
+    float price;
 };
 
-void parse_row(GumboNode* row) {
-    printf("HANDLING ROW\n\n");
+struct row parse_row(GumboNode* row) {
+    /* Take pointer to a record and parse out the fields into a struct
+     *
+     * Children:
+     * 1 = id
+     * 3 = date
+     * 5 = type
+     * 7 = description
+     * 9 = price
+     */
 
-    /*
-    for (unsigned int i = 0; i < row->v.element.children.length; i++) { //loop through cols
-        GumboNode* child = row->v.element.children.data[i];
-        if (child->type == GUMBO_NODE_ELEMENT) {
-            int len = child->v.element.end_pos.offset - child->v.element.start_pos.offset;
-            printf("%.*s\n", len, child->v.element.original_tag.data);
-            printf("field chilren: %d\n", child->v.element.children.length);
-            GumboNode* subc = child->v.element.children.data[0];
-            printf("subc type: %d\n\n", subc->type);
-        }
-    }
-    */
-
-
-
+    struct row r;
     GumboVector* fields = &row->v.element.children;
-    for (unsigned int i = 0; i < fields->length; ++i) {
-        GumboNode* child = fields->data[i];
+    GumboNode* field;
+    GumboNode* field_text;
+
+    //id
+    field = fields->data[1];
+    field_text = field->v.element.children.data[0];
+    r.id = atoi(field_text->v.text.text);
+    printf("id: %d\n", r.id);
+
+    //date
+    field = fields->data[3];
+    field_text = field->v.element.children.data[0];
+    r.date = field_text->v.text.text;
+    printf("date: %s\n", r.date);
+
+    //type
+    field = fields->data[5];
+    field_text = field->v.element.children.data[0];
+    r.type = field_text->v.text.text;
+    printf("type: %s\n", r.type);
+
+
+    //description
+    field = fields->data[7];
+    field_text = field->v.element.children.data[0];
+    r.description = field_text->v.text.text;
+    printf("description: %s\n", r.description);
+
+    //price
+    field = fields->data[9];
+    field_text = field->v.element.children.data[0];
+    GumboNode* price_div = field_text->v.element.children.data[0];
+    char price[5];
+    strncpy(price, (price_div->v.text.text + 2), 4);
+    r.price = atof(price);
+    printf("price: %f\n", r.price);
+
+    return r;
+}
+
+/* //Research code
+   for (unsigned int i = 0; i < fields->length; ++i) {
+   GumboNode* field = fields->data[i];
+   if (field->type == GUMBO_NODE_ELEMENT && field->v.element.tag == GUMBO_TAG_TD) {
+//if (field->v.element.children.length != 1) {
+//    printf( "<empty field>\n");
+//    continue;
+//}
+GumboNode* field_text = field->v.element.children.data[0];
+if (field_text->type == GUMBO_NODE_TEXT || field_text->type == GUMBO_NODE_WHITESPACE) //normal field
+printf("field %d: %s\n", i, field_text->v.text.text);
+else { //div, the price
+GumboNode* price_div = field_text->v.element.children.data[0];
+if (price_div->type == GUMBO_NODE_TEXT || price_div->type == GUMBO_NODE_WHITESPACE)
+printf("danger: %s\n", price_div->v.text.text);
+}
+}
+}
+} */
+
+
+void find_table(const GumboNode* root) {
+    assert(root->type == GUMBO_NODE_ELEMENT);
+    assert(root->v.element.children.length >= 2);
+
+    const GumboVector* root_children = &root->v.element.children;
+    GumboNode* body = NULL;
+    for (unsigned int i = 0; i < root_children->length; ++i) {
+        GumboNode* child = root_children->data[i];
         if (child->type == GUMBO_NODE_ELEMENT &&
-                child->v.element.tag == GUMBO_TAG_TD) {
-            if (child->v.element.children.length != 1) {
-                printf( "<empty field>\n");
-            }
-            GumboNode* field_text = child->v.element.children.data[0];
-            if (field_text->type == GUMBO_NODE_TEXT || field_text->type == GUMBO_NODE_WHITESPACE) //normal field
-                printf("field: %s\n", field_text->v.text.text);
-            else { //div, the price
-                GumboNode* price_div = field_text->v.element.children.data[0];
-                if (price_div->type == GUMBO_NODE_TEXT || price_div->type == GUMBO_NODE_WHITESPACE)
-                    printf("danger: %s\n", price_div->v.text.text);
-            }
+                child->v.element.tag == GUMBO_TAG_BODY) {
+            body = child;
+            break;
         }
     }
-    //printf("%s\n", child->v.element.attributes.data[0]);
-    /*
-       for (unsigned int j = 0; j < child->v.element.children.length; j++) {
-       GumboNode* subc = child->v.element.children.data[j];
-       int len = subc->v.element.end_pos.offset - subc->v.element.start_pos.offset;
-       printf("%.*s\n", len, subc->v.element.original_tag.data);
-       }*/
+    assert(body != NULL);
 
+    /* //Research code
+       printf("node element %d\n", GUMBO_NODE_ELEMENT); //1
+       printf("node text %d\n", GUMBO_NODE_TEXT); //2
+       printf("node whitespace %d\n", GUMBO_NODE_WHITESPACE); //5
 
-}
+       printf("tag div %d\n", GUMBO_TAG_DIV); //38
+       printf("tag table %d\n", GUMBO_TAG_TABLE);//95
+       printf("tag p %d\n", GUMBO_TAG_P);//25
+       printf("tag h %d\n", GUMBO_TAG_H1);
+       printf("tag head %d\n", GUMBO_TAG_HEAD);
+       printf("\n");
 
-//TODO filter auths
+       for (unsigned int i = 0; i < body->v.element.children.length; i++) {
+       GumboNode* child = body->v.element.children.data[i];
+       if (child->type == GUMBO_NODE_ELEMENT)
+       printf("body child %d   tag %d\n", i, child->v.element.tag);
+       }
+       printf("\n");
+       */
+    GumboNode* divcontent = body->v.element.children.data[7]; //<div id=content
+    GumboNode* divfeature = divcontent->v.element.children.data[5]; //<div id=content
+    GumboNode* table = divfeature->v.element.children.data[1];
+    GumboNode* tablecontent = table->v.element.children.data[1];
 
-static const char* find_table(const GumboNode* root) {
-  assert(root->type == GUMBO_NODE_ELEMENT);
-  assert(root->v.element.children.length >= 2);
-
-  const GumboVector* root_children = &root->v.element.children;
-  GumboNode* body = NULL;
-  for (unsigned int i = 0; i < root_children->length; ++i) {
-    GumboNode* child = root_children->data[i];
-    if (child->type == GUMBO_NODE_ELEMENT &&
-        child->v.element.tag == GUMBO_TAG_BODY) {
-      body = child;
-      break;
+    //hardcoded 
+    //filters all our nodes just to record rootes
+    for (unsigned int i = 6; i < tablecontent->v.element.children.length - 5; i++) {
+        GumboNode* child = tablecontent->v.element.children.data[i];
+        if (child->type == GUMBO_NODE_ELEMENT) {
+            //printf("%.*s\n", 100, child->v.element.original_tag.data);
+            printf("\n\n\nchild %d   tag %d\n", i, child->v.element.tag);
+            parse_row(child);
+            //TODO filter auths
+        }
     }
-  }
-  assert(body != NULL);
-
-  /*
-  printf("node element %d\n", GUMBO_NODE_ELEMENT); //1
-  printf("node text %d\n", GUMBO_NODE_TEXT); //2
-  printf("node whitespace %d\n", GUMBO_NODE_WHITESPACE); //5
-
-  printf("tag div %d\n", GUMBO_TAG_DIV); //38
-  printf("tag table %d\n", GUMBO_TAG_TABLE);//95
-  printf("tag p %d\n", GUMBO_TAG_P);//25
-  printf("tag h %d\n", GUMBO_TAG_H1);
-  printf("tag head %d\n", GUMBO_TAG_HEAD);
-  printf("\n");
-
-  for (unsigned int i = 0; i < body->v.element.children.length; i++) {
-      GumboNode* child = body->v.element.children.data[i];
-      if (child->type == GUMBO_NODE_ELEMENT)
-          printf("body child %d   tag %d\n", i, child->v.element.tag);
-  }
-  printf("\n");
-  */
-  GumboNode* divcontent = body->v.element.children.data[7]; //<div id=content
-
-  //printf("%s\n", divcontent->v.element.original_tag.data);
-
-  GumboNode* divfeature = divcontent->v.element.children.data[5]; //<div id=content
-  GumboNode* table = divfeature->v.element.children.data[1];
-
-  GumboNode* tablecontent = table->v.element.children.data[1];
-
-  /*
-  GumboNode* row = tablecontent->v.element.children.data[26]; //should be 6-26
-
-  printf("%s\n", row->v.element.original_tag.data);
-  printf("\n");
-  */
-
-  //hardcoded 
-  //filters all our nodes just to record rootes
-  for (unsigned int i = 6; i < tablecontent->v.element.children.length - 5; i++) {
-      GumboNode* child = tablecontent->v.element.children.data[i];
-      if (child->type == GUMBO_NODE_ELEMENT) {
-          //printf("%.*s\n", 100, child->v.element.original_tag.data);
-          printf("\n\n\nchild %d   tag %d\n", i, child->v.element.tag);
-          parse_row(child);
-      }
-  }
-
-  exit(0);
 }
-
-
-
-
-/*
-  GumboVector* head_children = &body->v.element.children;
-  for (unsigned int i = 0; i < head_children->length; ++i) {
-    GumboNode* child = head_children->data[i];
-    if (child->type == GUMBO_NODE_ELEMENT &&
-        child->v.element.tag == GUMBO_TAG_TITLE) {
-      if (child->v.element.children.length != 1) {
-        return "<empty title>";
-      }
-      GumboNode* title_text = child->v.element.children.data[0];
-      assert(title_text->type == GUMBO_NODE_TEXT || title_text->type == GUMBO_NODE_WHITESPACE);
-      return title_text->v.text.text;
-    }
-  }
-  return "<no title found>";
-}
-*/
 
 int main() {
-    /*
-  if (argc != 2) {
-    printf("Usage: get_title <html filename>.\n");
-    exit(EXIT_FAILURE);
-  }
-  const char* filename = argv[1];
-  */
-  const char* filename = "table.html";
-  FILE* fp = fopen(filename, "r");
-  if (!fp) {
-    printf("File %s not found!\n", filename);
-    exit(EXIT_FAILURE);
-  }
+    const char* filename = "table.html";
+    FILE* fp = fopen(filename, "r");
+    if (!fp) {
+        printf("File %s not found!\n", filename);
+        exit(EXIT_FAILURE);
+    }
 
-  char* input;
-  int input_length;
-  read_file(fp, &input, &input_length);
-  GumboOutput* output = gumbo_parse_with_options(
-      &kGumboDefaultOptions, input, input_length);
-  const char* title = find_table(output->root);
-  printf("%s\n", title);
-  gumbo_destroy_output(&kGumboDefaultOptions, output);
-  free(input);
+    char* input;
+    int input_length;
+    read_file(fp, &input, &input_length);
+    GumboOutput* output = gumbo_parse_with_options(
+            &kGumboDefaultOptions, input, input_length);
+    find_table(output->root);
+    gumbo_destroy_output(&kGumboDefaultOptions, output);
+    free(input);
 }
 
 
