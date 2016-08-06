@@ -29,6 +29,8 @@ struct row {
 
 void parse_row(GumboNode* row) {
     printf("HANDLING ROW\n\n");
+
+    /*
     for (unsigned int i = 0; i < row->v.element.children.length; i++) { //loop through cols
         GumboNode* child = row->v.element.children.data[i];
         if (child->type == GUMBO_NODE_ELEMENT) {
@@ -37,18 +39,39 @@ void parse_row(GumboNode* row) {
             printf("field chilren: %d\n", child->v.element.children.length);
             GumboNode* subc = child->v.element.children.data[0];
             printf("subc type: %d\n\n", subc->type);
-
-            //printf("%s\n", child->v.element.attributes.data[0]);
-            /*
-            for (unsigned int j = 0; j < child->v.element.children.length; j++) {
-                GumboNode* subc = child->v.element.children.data[j];
-                int len = subc->v.element.end_pos.offset - subc->v.element.start_pos.offset;
-                printf("%.*s\n", len, subc->v.element.original_tag.data);
-            }*/
-
-
         }
     }
+    */
+
+
+
+    GumboVector* fields = &row->v.element.children;
+    for (unsigned int i = 0; i < fields->length; ++i) {
+        GumboNode* child = fields->data[i];
+        if (child->type == GUMBO_NODE_ELEMENT &&
+                child->v.element.tag == GUMBO_TAG_TD) {
+            if (child->v.element.children.length != 1) {
+                printf( "<empty field>\n");
+            }
+            GumboNode* field_text = child->v.element.children.data[0];
+            if (field_text->type == GUMBO_NODE_TEXT || field_text->type == GUMBO_NODE_WHITESPACE) //normal field
+                printf("field: %s\n", field_text->v.text.text);
+            else { //div, the price
+                GumboNode* price_div = field_text->v.element.children.data[0];
+                if (price_div->type == GUMBO_NODE_TEXT || price_div->type == GUMBO_NODE_WHITESPACE)
+                    printf("danger: %s\n", price_div->v.text.text);
+            }
+        }
+    }
+    //printf("%s\n", child->v.element.attributes.data[0]);
+    /*
+       for (unsigned int j = 0; j < child->v.element.children.length; j++) {
+       GumboNode* subc = child->v.element.children.data[j];
+       int len = subc->v.element.end_pos.offset - subc->v.element.start_pos.offset;
+       printf("%.*s\n", len, subc->v.element.original_tag.data);
+       }*/
+
+
 }
 
 //TODO filter auths
@@ -73,6 +96,7 @@ static const char* find_table(const GumboNode* root) {
   printf("node element %d\n", GUMBO_NODE_ELEMENT); //1
   printf("node text %d\n", GUMBO_NODE_TEXT); //2
   printf("node whitespace %d\n", GUMBO_NODE_WHITESPACE); //5
+
   printf("tag div %d\n", GUMBO_TAG_DIV); //38
   printf("tag table %d\n", GUMBO_TAG_TABLE);//95
   printf("tag p %d\n", GUMBO_TAG_P);//25
