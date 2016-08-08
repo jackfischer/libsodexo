@@ -102,7 +102,7 @@ printf("danger: %s\n", price_div->v.text.text);
 } */
 
 
-void find_table(const GumboNode* root) {
+struct row* find_table(const GumboNode* root) {
     assert(root->type == GUMBO_NODE_ELEMENT);
     assert(root->v.element.children.length >= 2);
 
@@ -142,17 +142,24 @@ void find_table(const GumboNode* root) {
     GumboNode* table = divfeature->v.element.children.data[1];
     GumboNode* tablecontent = table->v.element.children.data[1];
 
-    //hardcoded 
-    //filters all our nodes just to record rootes
+    
+    struct row* rows = malloc(0);
+    long rows_len = 0;
+    //filters all our nodes just to record rootes //hardcoded 
     for (unsigned int i = 6; i < tablecontent->v.element.children.length - 5; i++) {
         GumboNode* child = tablecontent->v.element.children.data[i];
         if (child->type == GUMBO_NODE_ELEMENT) {
-            //printf("%.*s\n", 100, child->v.element.original_tag.data);
-            printf("\n\n\nchild %d   tag %d\n", i, child->v.element.tag);
-            parse_row(child);
-            //TODO filter auths
+            //filter auths
+            int len = child->v.element.end_pos.offset - child->v.element.start_pos.offset;
+            if (strnstr(child->v.element.original_tag.data, "AUTH", len) != NULL) {
+                printf("\n\n\nchild %d   tag %d\n", i, child->v.element.tag);
+                rows = realloc(rows, (rows_len + 1) * sizeof(struct row));
+                rows[rows_len] = parse_row(child);
+                rows_len += 1;
+            }
         }
     }
+    return rows;
 }
 
 int main() {
@@ -168,7 +175,7 @@ int main() {
     read_file(fp, &input, &input_length);
     GumboOutput* output = gumbo_parse_with_options(
             &kGumboDefaultOptions, input, input_length);
-    find_table(output->root);
+    struct row* rows = find_table(output->root);
     gumbo_destroy_output(&kGumboDefaultOptions, output);
     free(input);
 }
