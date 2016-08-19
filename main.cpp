@@ -28,15 +28,32 @@ std::vector<std::string> extractCookies(std::string c)
     return result;
 }
 
+std::string extractTransactionsPage(std::string page)
+{
+    std::cout<<page <<std::endl;
+    int start = page.find("accountList.html?id");
+    int end = page.find("\">>", start);
+    return page.substr(start, end-start);
+}
+
 
 int main(int, char **)
 {
+       std::string page;
+       for (std::string line; std::getline(std::cin, line);) {
+       page.append(line);
+       page.append("\n");
+       }
+       std::cout << extractTransactionsPage(page);
+       return 0;
+
     try
     {
         curlpp::Cleanup myCleanup;
 
         {
-            std::string login = "https://bing.campuscardcenter.com/ch/login.html";
+            std::string base = "https://bing.campuscardcenter.com/ch/";
+            std::string login = base + "login.html";
             //login = "http://jackfischer.me/test.php";
 
             /* GET LOGIN PAGE FOR DVH COOKIE */
@@ -63,8 +80,8 @@ int main(int, char **)
                 std::cout << s <<std::endl;
             std::cout <<"ok, sleeping" <<std::endl <<std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(2));
-            
-            
+
+
 
             /* POST TO LOGIN PAGE WITH CREDENTIALS, GET JSESSIONID COOKIE*/
             curlpp::Easy doLogin;
@@ -78,7 +95,6 @@ int main(int, char **)
             //myRequest.setOpt(new curlpp::options::NoBody(true)); 
             doLogin.setOpt(new curlpp::options::Header(true)); 
 
-
             std::stringstream os2;
             curlpp::options::WriteStream ws2(&os2);
             doLogin.setOpt(ws2);
@@ -90,7 +106,29 @@ int main(int, char **)
                 std::cout << s <<std::endl;
             std::cout <<"ok, sleeping" <<std::endl <<std::endl;
             std::this_thread::sleep_for(std::chrono::seconds(2));
-             
+
+
+
+            /* FIND LINK TO TRANSACTION LIST AND FOLLOW */
+            std::string acctUrl = base;
+            curlpp::Easy transactions;
+            transactions.setOpt(new curlpp::options::Url(acctUrl));
+            transactions.setOpt(new curlpp::options::HttpHeader(headers));
+            for (std::string s : cookies2)
+                transactions.setOpt(new curlpp::options::Cookie(s));
+            //transactions.setOpt(new curlpp::options::Header(true)); 
+            std::stringstream os3;
+            curlpp::options::WriteStream ws3(&os3);
+            transactions.setOpt(ws3);
+            transactions.perform();
+
+            std::cout << os3.str() <<std::endl;
+            
+
+
+
+            acctUrl = base + extractTransactionsPage(os3.str());
+            std::cout <<acctUrl <<std::endl;
         }
 
     }
